@@ -1,0 +1,14 @@
+{
+  "doc_type": "invoice",
+  "fields": [
+    { "name": "vendor_name", "type": "string", "required": true },
+    { "name": "invoice_number", "type": "string", "required": true },
+    { "name": "invoice_date", "type": "date", "required": true },
+    { "name": "due_date", "type": "date", "required": false },
+    { "name": "subtotal", "type": "currency", "required": true },
+    { "name": "tax", "type": "currency", "required": false },
+    { "name": "total", "type": "currency", "required": true },
+    { "name": "line_items", "type": "table", "required": true, "columns": ["description", "quantity", "unit_price", "amount"] }
+  ],
+  "prompt_hint": "Extract all invoice fields. For line_items return an array of objects."
+}

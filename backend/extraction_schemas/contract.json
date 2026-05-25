@@ -1,0 +1,10 @@
+{
+  "doc_type": "contract",
+  "fields": [
+    { "name": "parties", "type": "string", "required": false },
+    { "name": "effective_date", "type": "date", "required": false },
+    { "name": "expiration_date", "type": "date", "required": false },
+    { "name": "summary", "type": "string", "required": false }
+  ],
+  "prompt_hint": "Extract the contract parties and dates."
+}

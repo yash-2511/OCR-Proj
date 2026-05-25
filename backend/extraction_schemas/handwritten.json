@@ -1,0 +1,8 @@
+{
+  "doc_type": "handwritten",
+  "fields": [
+    { "name": "transcript", "type": "string", "required": false },
+    { "name": "notes", "type": "string", "required": false }
+  ],
+  "prompt_hint": "Transcribe the handwritten content as faithfully as possible."
+}

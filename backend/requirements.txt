@@ -1,0 +1,12 @@
+flask
+flask-cors
+flask-sqlalchemy
+python-dotenv
+easyocr
+opencv-python-headless
+pymupdf
+pillow
+openpyxl
+openai
+google-generativeai
+anthropic

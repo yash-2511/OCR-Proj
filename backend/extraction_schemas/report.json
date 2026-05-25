@@ -1,0 +1,10 @@
+{
+  "doc_type": "report",
+  "fields": [
+    { "name": "title", "type": "string", "required": false },
+    { "name": "author", "type": "string", "required": false },
+    { "name": "date", "type": "date", "required": false },
+    { "name": "summary", "type": "string", "required": false }
+  ],
+  "prompt_hint": "Extract the report title, author, date, and summary."
+}

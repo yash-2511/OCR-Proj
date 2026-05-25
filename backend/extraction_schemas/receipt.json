@@ -1,0 +1,11 @@
+{
+  "doc_type": "receipt",
+  "fields": [
+    { "name": "merchant_name", "type": "string", "required": true },
+    { "name": "receipt_number", "type": "string", "required": false },
+    { "name": "purchase_date", "type": "date", "required": true },
+    { "name": "total", "type": "currency", "required": true },
+    { "name": "payment_method", "type": "string", "required": false }
+  ],
+  "prompt_hint": "Extract the receipt summary and total paid amount."
+}

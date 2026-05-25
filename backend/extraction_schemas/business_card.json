@@ -1,0 +1,12 @@
+{
+  "doc_type": "business_card",
+  "fields": [
+    { "name": "full_name", "type": "string", "required": true },
+    { "name": "job_title", "type": "string", "required": false },
+    { "name": "company", "type": "string", "required": false },
+    { "name": "phone", "type": "string", "required": false },
+    { "name": "email", "type": "string", "required": false },
+    { "name": "website", "type": "string", "required": false }
+  ],
+  "prompt_hint": "Extract contact details from the business card."
+}

@@ -1,0 +1,11 @@
+{
+  "doc_type": "id_card",
+  "fields": [
+    { "name": "full_name", "type": "string", "required": true },
+    { "name": "id_number", "type": "string", "required": true },
+    { "name": "date_of_birth", "type": "date", "required": false },
+    { "name": "expiry_date", "type": "date", "required": false },
+    { "name": "address", "type": "string", "required": false }
+  ],
+  "prompt_hint": "Extract the identity card holder details."
+}
