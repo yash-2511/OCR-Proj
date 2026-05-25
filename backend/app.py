@@ -8,7 +8,7 @@ from flask_cors import CORS
 
 from backend.config import Config
 from backend.models.database import db, ensure_document_hashes
-from backend.routes import batch_bp, documents_bp, export_bp, extract_bp, upload_bp
+from backend.routes import auth_bp, batch_bp, documents_bp, export_bp, extract_bp, upload_bp
 
 
 def _ensure_directory(path: str) -> None:
@@ -30,6 +30,7 @@ def create_app() -> Flask:
     app.register_blueprint(documents_bp)
     app.register_blueprint(export_bp)
     app.register_blueprint(batch_bp)
+    app.register_blueprint(auth_bp)
 
     @app.get("/api/health")
     def health():
