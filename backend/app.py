@@ -31,7 +31,15 @@ def create_app() -> Flask:
     app.register_blueprint(export_bp)
     app.register_blueprint(batch_bp)
     app.register_blueprint(auth_bp)
-
+    @app.get("/")
+    def main():
+        return """
+    <h2>Flask Server running successfully at PORT 5000</h2>
+    <h2><a href="http://localhost:3000" target="_blank">
+        Visit Frontend
+    </a></h2>
+    """
+    
     @app.get("/api/health")
     def health():
         return jsonify({"success": True, "data": {"status": "ok"}, "error": None})
