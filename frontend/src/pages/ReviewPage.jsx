@@ -85,7 +85,10 @@ export default function ReviewPage() {
       </section>
 
       <section className="max-h-[72vh] overflow-auto rounded-3xl">
-        <PreprocessPreview beforeUrl={document?.document_id ? `/api/documents/${document.document_id || document.id}/original` : null} afterUrl={document?.document_id ? `/api/documents/${document.document_id || document.id}/preprocessed` : null} />
+        <PreprocessPreview
+          beforeUrl={document?.document_id ? `/api/documents/${document.document_id || document.id}/original` : null}
+          afterUrl={document?.document_id ? `/api/documents/${document.document_id || document.id}/preprocessed` : null}
+        />
       </section>
 
       <section className="max-h-[72vh] overflow-auto rounded-3xl panel p-5">
