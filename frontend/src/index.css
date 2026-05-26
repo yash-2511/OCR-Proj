@@ -1,0 +1,112 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg-base: #0C0E12;
+  --bg-surface: #13161C;
+  --bg-raised: #1A1E27;
+  --bg-hover: #1F2430;
+  --bg-active: #252A38;
+
+  --border: #252A38;
+  --border-strong: #2E3447;
+
+  /* brighter, higher-contrast text tokens */
+  --text-primary: #F3F6FA; /* brighter */
+  --text-secondary: #AAB7C9; /* lighter secondary */
+  --text-muted: #6B7385; /* slightly brighter muted */
+
+  --accent-cyan: #22D3EE;
+  --accent-cyan-dim: #164E63;
+  --accent-cyan-text: #67E8F9;
+
+  --confidence-high: #10B981;
+  --confidence-medium: #F59E0B;
+  --confidence-low: #EF4444;
+}
+
+html, body, #root { height: 100%; }
+body {
+  margin: 0;
+  background: var(--bg-base);
+  color: var(--text-primary);
+  font-family: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+* { box-sizing: border-box; }
+
+/* Scrollbar */
+*::-webkit-scrollbar { height: 8px; width: 8px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 4px; }
+
+/* Design system helpers */
+.dm-mono { font-family: 'DM Mono', ui-monospace, SFMono-Regular, monospace; }
+.card { background: var(--bg-surface); border: 1px solid var(--border); border-radius: 6px; }
+.card-raised { background: var(--bg-raised); border: 1px solid var(--border-strong); }
+
+.btn-primary { background: var(--accent-cyan); color: #000; font-weight: 600; font-size: 13px; border-radius: 5px; padding: 7px 16px; }
+.btn-secondary { background: transparent; border: 1px solid var(--border-strong); color: var(--text-secondary); font-size: 13px; padding: 7px 16px; border-radius: 5px; }
+.btn-secondary:hover { border-color: var(--accent-cyan); color: var(--accent-cyan); }
+
+.input { background: var(--bg-base); border: 1px solid var(--border); border-radius: 5px; padding: 7px 12px; font-size: 13px; color: var(--text-primary); }
+.input:focus { outline: none; border-color: var(--accent-cyan); }
+
+.badge { font-family: 'DM Mono', monospace; font-size: 11px; padding: 2px 8px; border-radius: 3px; }
+
+/* Layout helpers */
+.shell { display: flex; height: 100vh; }
+.sidebar { width: 220px; border-right: 1px solid var(--border); background: var(--bg-surface); }
+.main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+.topbar { height: 48px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; padding: 0 16px; }
+
+.content { padding: 16px; overflow: auto; }
+
+/* Force higher contrast in interactive elements and dropdowns */
+select, option, input, textarea, button {
+  color: var(--text-primary) !important;
+  background: transparent !important;
+}
+
+select, .dropdown, .dropdown-menu, .menu, .react-select__control, .react-select__menu, .react-select__menu-list {
+  background: var(--bg-surface) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border-strong) !important;
+}
+
+select option, .react-select__option {
+  background: var(--bg-surface) !important;
+  color: var(--text-primary) !important;
+}
+
+/* make sure content area text is clearly visible */
+.content, .content * { color: var(--text-primary) !important }
+
+/* Light theme overrides */
+.theme-light {
+  --bg-base: #F7FAFC;
+  --bg-surface: #FFFFFF;
+  --bg-raised: #F3F4F6;
+  --bg-hover: #EEF2F7;
+  --bg-active: #E6EDF4;
+
+  --border: #E6EDF4;
+  --border-strong: #CBD5E1;
+
+  --text-primary: #0B1220;
+  --text-secondary: #334155;
+  --text-muted: #6B7280;
+
+  --accent-cyan: #0EA5B7;
+  --accent-cyan-dim: #164E63;
+  --accent-cyan-text: #067E8C;
+}
+
+/* Smooth theme transition for user testing */
+:root, .theme-light { transition: background-color 180ms ease, color 180ms ease }
+
+/* Minimal utility for monospace small text */
+.mono-12 { font-family: 'DM Mono', monospace; font-size: 12px; }
