@@ -40,6 +40,14 @@ export default function DocumentUploader({ onUploaded }) {
     return `Upload & analyze ${queue.length} files`
   }, [label, queue.length])
 
+  function removeQueuedFile(fileToRemove) {
+    setQueue((current) => current.filter((file) => !(file.name === fileToRemove.name && file.size === fileToRemove.size && file.lastModified === fileToRemove.lastModified)))
+  }
+
+  function clearQueue() {
+    setQueue([])
+  }
+
   async function submit() {
     if (!queue.length) {
       toast.error('Choose at least one file first.')
@@ -90,12 +98,30 @@ export default function DocumentUploader({ onUploaded }) {
         {queue.length === 0 ? (
           <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>No files queued.</p>
         ) : (
-          queue.map((file) => (
-            <div key={`${file.name}-${file.size}`} className="flex items-center justify-between rounded-2xl card px-4 py-3 text-sm">
-              <span style={{ color: 'var(--text-primary)' }}>{file.name}</span>
-              <span className="dm-mono" style={{ color: 'var(--text-muted)' }}>{Math.round(file.size / 1024)} KB</span>
+          <>
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>{queue.length} file{queue.length === 1 ? '' : 's'} ready to upload.</p>
+              <button className="text-sm font-semibold" type="button" onClick={clearQueue} style={{ color: 'var(--text-secondary)' }}>
+                Clear queue
+              </button>
             </div>
-          ))
+            {queue.map((file) => (
+              <div key={`${file.name}-${file.size}-${file.lastModified}`} className="flex items-center justify-between gap-3 rounded-2xl card px-4 py-3 text-sm">
+                <div className="min-w-0">
+                  <span className="block truncate" style={{ color: 'var(--text-primary)' }}>{file.name}</span>
+                  <span className="dm-mono text-xs" style={{ color: 'var(--text-muted)' }}>{Math.round(file.size / 1024)} KB</span>
+                </div>
+                <button
+                  className="rounded-full border px-3 py-1 text-xs font-semibold transition hover:opacity-80"
+                  type="button"
+                  onClick={() => removeQueuedFile(file)}
+                  style={{ borderColor: 'var(--border)', color: 'var(--text-primary)' }}
+                >
+                  Remove
+                </button>
+              </div>
+            ))}
+          </>
         )}
       </div>
     </section>

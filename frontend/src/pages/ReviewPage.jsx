@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import DocumentViewer from '../components/DocumentViewer'
@@ -9,54 +9,103 @@ import { getDocument, getDocumentInsights } from '../services/api'
 export default function ReviewPage() {
   const location = useLocation()
   const [document, setDocument] = useState(null)
-  const [fields, setFields] = useState([])
   const [tables, setTables] = useState([])
   const [insights, setInsights] = useState(null)
+  const [isLoading, setIsLoading] = useState(false)
+  const [loadError, setLoadError] = useState('')
   const documentId = location.state?.documentId
 
-  function normalizeFields(payloadFields) {
-    if (!payloadFields) return []
-    if (Array.isArray(payloadFields)) return payloadFields
-    if (typeof payloadFields !== 'object') return []
+  function formatTableValue(value) {
+    if (value === null || value === undefined || value === '') return '—'
+    if (typeof value === 'string') return value
+    if (typeof value === 'number' || typeof value === 'boolean') return String(value)
+    if (Array.isArray(value)) return value.map((item) => formatTableValue(item)).join(', ')
+    if (typeof value === 'object') return JSON.stringify(value, null, 2)
+    return String(value)
+  }
 
-    return Object.entries(payloadFields).map(([field_name, value]) => {
-      if (value && typeof value === 'object' && !Array.isArray(value)) {
-        return {
-          field_name,
-          field_value: value.value ?? null,
-          confidence: value.confidence ?? 'low',
-        }
-      }
+  function buildFieldRows(payload) {
+    if (!payload || typeof payload !== 'object') return []
+    if (Array.isArray(payload.field_rows)) {
+      return payload.field_rows.filter((row) => row?.field_name && String(row.field_name).trim() !== 'fields')
+    }
 
-      return {
-        field_name,
-        field_value: value,
-        confidence: 'low',
+    const fieldMap = payload.fields && typeof payload.fields === 'object' ? payload.fields : {}
+    const rows = []
+
+    function pushRow(fieldName, fieldValue) {
+      if (!fieldName) return
+      const normalizedName = String(fieldName).trim()
+      if (!normalizedName || normalizedName === 'fields' || normalizedName.startsWith('_')) return
+      if (Array.isArray(fieldValue) && fieldValue.every((item) => item && typeof item === 'object' && ('label' in item || 'field_name' in item || 'name' in item) && 'value' in item)) {
+        fieldValue.forEach((item) => pushRow(item.label || item.field_name || item.name, item.value))
+        return
       }
-    })
+      if (fieldValue && typeof fieldValue === 'object' && !Array.isArray(fieldValue)) {
+        return
+      }
+      rows.push({
+        field_name: normalizedName,
+        field_value: fieldValue,
+        confidence: null,
+        page_number: null,
+      })
+    }
+
+    Object.entries(fieldMap).forEach(([fieldName, fieldValue]) => pushRow(fieldName, fieldValue))
+    return rows
   }
 
   useEffect(() => {
     if (!documentId) return
-    getDocument(documentId)
-      .then((response) => {
-        const body = response.data || response
+    let active = true
+    setIsLoading(true)
+    setLoadError('')
+    setDocument(null)
+    setTables([])
+    setInsights(null)
+
+    Promise.allSettled([getDocument(documentId), getDocumentInsights(documentId)]).then(([documentResult, insightsResult]) => {
+      if (!active) return
+
+      if (documentResult.status === 'fulfilled') {
+        const body = documentResult.value.data || documentResult.value
         const payload = body.data || body
         setDocument(payload)
-        setFields(normalizeFields(payload.fields || payload.field_annotations || []))
-        setTables(payload.tables || [])
-      })
-      .catch((error) => toast.error(error.message))
-    getDocumentInsights(documentId)
-      .then((response) => {
-        const body = response.data || response
+        setTables(payload.tables || payload.extraction_result?.tables || [])
+      } else {
+        const message = documentResult.reason?.message || 'Could not load document data'
+        setLoadError(message)
+        toast.error(message)
+      }
+
+      if (insightsResult.status === 'fulfilled') {
+        const body = insightsResult.value.data || insightsResult.value
         setInsights(body.data || body)
-      })
-      .catch((error) => toast.error(error.message))
+      } else {
+        toast.error(insightsResult.reason?.message || 'Could not load OCR and AI insights')
+      }
+
+      setIsLoading(false)
+    })
+
+    return () => {
+      active = false
+    }
   }, [documentId])
+
+  const fieldRows = useMemo(() => buildFieldRows(document || {}), [document])
 
   if (!documentId) {
     return <div className="panel p-6" style={{ color: 'var(--text-secondary)' }}>Pick a document from the upload flow or the library to inspect its extraction results.</div>
+  }
+
+  if (isLoading) {
+    return <LoadingState />
+  }
+
+  if (loadError && !document) {
+    return <div className="panel p-6" style={{ color: 'var(--text-secondary)' }}>{loadError}</div>
   }
 
   return (
@@ -68,19 +117,36 @@ export default function ReviewPage() {
       <section className="rounded-3xl panel p-5">
         <div className="mb-4 flex items-center justify-between gap-3">
           <div>
-            <h3 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>Structured fields</h3>
-            <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Clean extracted data returned by the backend.</p>
+            <h3 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>Corrected fields</h3>
+            <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Structured field rows built from the corrected JSON payload.</p>
           </div>
         </div>
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {fields.map((field) => (
-            <div key={field.field_name} className="rounded-2xl border p-4" style={{ background: 'var(--bg-base)', borderColor: 'var(--border)' }}>
-              <div className="text-xs font-semibold uppercase tracking-[0.08em]" style={{ color: 'var(--text-secondary)' }}>{field.field_name}</div>
-              <div className="mt-2 text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{String(field.field_value ?? 'null')}</div>
-              <div className="mt-2 text-xs" style={{ color: 'var(--text-muted)' }}>Confidence: {field.confidence || 'low'}</div>
-            </div>
-          ))}
-          {fields.length === 0 ? <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>No structured fields available yet.</p> : null}
+        <div className="overflow-auto rounded-2xl border" style={{ borderColor: 'var(--border)' }}>
+          <table className="min-w-full text-sm" style={{ borderCollapse: 'collapse' }}>
+            <thead style={{ background: 'var(--bg-raised)' }}>
+              <tr>
+                <th className="px-4 py-3 text-left font-semibold" style={{ color: 'var(--text-secondary)' }}>Field</th>
+                <th className="px-4 py-3 text-left font-semibold" style={{ color: 'var(--text-secondary)' }}>Value</th>
+                <th className="px-4 py-3 text-left font-semibold" style={{ color: 'var(--text-secondary)' }}>Confidence</th>
+                <th className="px-4 py-3 text-left font-semibold" style={{ color: 'var(--text-secondary)' }}>Page</th>
+              </tr>
+            </thead>
+            <tbody>
+              {fieldRows.map((row) => (
+                <tr key={row.field_name} style={{ borderTop: '1px solid var(--border)' }}>
+                  <td className="px-4 py-3 align-top font-medium" style={{ color: 'var(--text-primary)' }}>{row.field_name}</td>
+                  <td className="px-4 py-3 align-top whitespace-pre-wrap" style={{ color: 'var(--text-primary)' }}>{formatTableValue(row.field_value)}</td>
+                  <td className="px-4 py-3 align-top" style={{ color: 'var(--text-primary)' }}>{formatTableValue(row.confidence)}</td>
+                  <td className="px-4 py-3 align-top" style={{ color: 'var(--text-primary)' }}>{formatTableValue(row.page_number)}</td>
+                </tr>
+              ))}
+              {fieldRows.length === 0 ? (
+                <tr>
+                  <td className="px-4 py-4 text-sm" colSpan={4} style={{ color: 'var(--text-secondary)' }}>No corrected field data available yet.</td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
         </div>
       </section>
 
@@ -151,6 +217,48 @@ export default function ReviewPage() {
 
       <section className="max-h-[60vh] overflow-auto rounded-3xl">
         <ExportPanel documentId={documentId} />
+      </section>
+    </div>
+  )
+}
+
+function LoadingState() {
+  return (
+    <div className="space-y-6">
+      <section className="panel rounded-3xl p-6">
+        <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+          <div className="space-y-3">
+            <div className="h-5 w-48 animate-pulse rounded-full" style={{ background: 'var(--bg-raised)' }} />
+            <div className="h-4 w-72 animate-pulse rounded-full" style={{ background: 'var(--bg-raised)' }} />
+            <div className="h-4 w-56 animate-pulse rounded-full" style={{ background: 'var(--bg-raised)' }} />
+          </div>
+          <div className="rounded-2xl border p-4" style={{ background: 'var(--bg-base)', borderColor: 'var(--border)' }}>
+            <div className="h-4 w-24 animate-pulse rounded-full" style={{ background: 'var(--bg-raised)' }} />
+            <div className="mt-4 space-y-3">
+              <div className="h-3 w-full animate-pulse rounded-full" style={{ background: 'var(--bg-raised)' }} />
+              <div className="h-3 w-5/6 animate-pulse rounded-full" style={{ background: 'var(--bg-raised)' }} />
+              <div className="h-3 w-3/4 animate-pulse rounded-full" style={{ background: 'var(--bg-raised)' }} />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="panel rounded-3xl p-6">
+        <div className="mb-4 h-5 w-44 animate-pulse rounded-full" style={{ background: 'var(--bg-raised)' }} />
+        <div className="overflow-hidden rounded-2xl border" style={{ borderColor: 'var(--border)' }}>
+          <div className="grid grid-cols-2 border-b" style={{ borderColor: 'var(--border)' }}>
+            <div className="h-12 animate-pulse" style={{ background: 'var(--bg-raised)' }} />
+            <div className="h-12 animate-pulse" style={{ background: 'var(--bg-raised)' }} />
+          </div>
+          <div className="space-y-px">
+            {Array.from({ length: 4 }).map((_, index) => (
+              <div key={index} className="grid grid-cols-2 gap-px">
+                <div className="h-14 animate-pulse" style={{ background: 'var(--bg-base)' }} />
+                <div className="h-14 animate-pulse" style={{ background: 'var(--bg-base)' }} />
+              </div>
+            ))}
+          </div>
+        </div>
       </section>
     </div>
   )

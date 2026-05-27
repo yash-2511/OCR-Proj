@@ -90,17 +90,19 @@ const mockImpl = {
     const document = mockStore?.getState().getDocument(id)
     if (!document) throw new Error('Not found')
 
-    const fields = Object.entries(document.extractedFields || {}).map(([field_name, field_value]) => ({ field_name, field_value }))
+    const sourceFields = document.fields && typeof document.fields === 'object' ? document.fields : document.extractedFields || {}
+    const fields = Object.entries(sourceFields).map(([field_name, field_value]) => ({ field_name, field_value }))
     const highlights = fields.slice(0, 5).map((field) => `${field.field_name}: ${field.field_value}`)
     const summaryBits = []
     if (document.type) summaryBits.push(`This appears to be a ${String(document.type).toLowerCase()} document.`)
+    if (document.text) summaryBits.push(document.text.split('\n').slice(0, 2).join(' '))
     if (document.extractedFields?.ADDRESS) summaryBits.push(`It includes address details such as ${document.extractedFields.ADDRESS}.`)
     if (document.extractedFields?.TOTAL) summaryBits.push(`A monetary total of ${document.extractedFields.TOTAL} is present.`)
     if (document.extractedFields?.DATE) summaryBits.push(`The document includes date information like ${document.extractedFields.DATE}.`)
 
     return {
       data: {
-        extracted_text: Object.values(document.extractedFields || {}).join('\n') || 'No OCR text could be recovered from this document.',
+        extracted_text: document.text || Object.values(sourceFields).join('\n') || 'No OCR text could be recovered from this document.',
         summary: summaryBits.length ? summaryBits.join(' ') : 'This document contains structured information and appears ready for review.',
         highlights,
         document_type: document.type || document.doc_type || 'document',

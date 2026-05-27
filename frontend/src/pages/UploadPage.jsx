@@ -1,13 +1,11 @@
 import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import DocumentUploader from '../components/DocumentUploader'
-import StatsPanel from '../components/StatsPanel'
 import { useEffect, useState } from 'react'
-import { extractDocument, getStats, listDocuments } from '../services/api'
+import { extractDocument, listDocuments } from '../services/api'
 
 export default function UploadPage() {
   const [documents, setDocuments] = useState([])
-  const [statsDocuments, setStatsDocuments] = useState([])
   const [analysisResults, setAnalysisResults] = useState([])
   const [isAnalyzingFiles, setIsAnalyzingFiles] = useState(false)
   const navigate = useNavigate()
@@ -18,13 +16,8 @@ export default function UploadPage() {
       .catch(() => toast.error('Could not load documents'))
   }
 
-  function refreshStats() {
-    getStats().then(() => listDocuments().then((response) => setStatsDocuments(response.data || response)).catch(() => null))
-  }
-
   useEffect(() => {
     refreshDocuments()
-    refreshStats()
   }, [])
 
   async function handleUploaded(payload) {
@@ -48,7 +41,6 @@ export default function UploadPage() {
         setAnalysisResults(results)
         toast.success(`Analyzed ${results.length} files`, { id: 'analyze-batch' })
         refreshDocuments()
-        refreshStats()
       } catch (error) {
         toast.error(error.message, { id: 'analyze-batch' })
       } finally {
@@ -76,84 +68,81 @@ export default function UploadPage() {
   }
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
-      <div className="space-y-6">
-        <DocumentUploader onUploaded={handleUploaded} />
+    <div className="space-y-6">
+      <DocumentUploader onUploaded={handleUploaded} />
 
-        {analysisResults.length > 0 ? (
-          <div className="panel p-5">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <h2 className="text-lg font-bold text-ink-900">Multi-file analysis result</h2>
-                <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-                  Each uploaded document was processed separately and is listed below with its own extraction summary.
-                </p>
-              </div>
-              <span className="rounded-full badge" style={{ background: 'var(--bg-raised)', color: 'var(--text-primary)', padding: '6px 10px' }}>
-                {isAnalyzingFiles ? 'Analyzing...' : 'Complete'}
-              </span>
-            </div>
-
-            <div className="mt-4 grid gap-3 md:grid-cols-4">
-              <Metric label="Processed" value={analysisResults.length} />
-              <Metric label="Success" value={analysisResults.filter((item) => item.status === 'done').length} />
-              <Metric label="Failed" value={analysisResults.filter((item) => item.status === 'failed').length} />
-              <Metric label="Files" value={analysisResults.length} />
-            </div>
-
-            <div className="mt-5 grid gap-3 lg:grid-cols-2">
-              {analysisResults.map((item) => (
-                <div key={item.document?.id || item.document?.filename} className="rounded-2xl border p-4" style={{ background: 'var(--bg-raised)', borderColor: 'var(--border-strong)' }}>
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <div className="font-semibold" style={{ color: 'var(--text-primary)' }}>{item.document?.filename || 'Untitled file'}</div>
-                      <div className="mt-1 text-sm" style={{ color: 'var(--text-secondary)' }}>
-                        {item.document?.doc_type || 'unknown'} • {item.fields?.length || 0} fields • {item.tables?.length || 0} tables
-                      </div>
-                    </div>
-                    <span className="rounded-full badge" style={{ background: 'var(--bg-base)', color: 'var(--text-primary)', padding: '6px 10px' }}>
-                      {item.status || 'done'}
-                    </span>
-                  </div>
-
-                  <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                    <MiniStat label="Confidence" value={Math.round((item.document?.classification_confidence || 0) * 100)} suffix="%" />
-                    <MiniStat label="Fields" value={item.fields?.length || 0} />
-                    <MiniStat label="Tables" value={item.tables?.length || 0} />
-                  </div>
-
-                  {item.error ? <p className="mt-3 text-sm" style={{ color: 'var(--confidence-low)' }}>{item.error}</p> : null}
-
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    <button className="glass-button bg-ink-900 text-white" onClick={() => navigate('/review', { state: { documentId: item.document?.id } })} disabled={!item.document?.id}>
-                      Review file
-                    </button>
-                    {item.document?.id ? (
-                      <button className="btn-secondary" onClick={() => navigate('/library')}>
-                        Open library
-                      </button>
-                    ) : null}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        ) : null}
-
+      {analysisResults.length > 0 ? (
         <div className="panel p-5">
-          <h2 className="text-lg font-bold text-ink-900">Recent documents</h2>
-          <div className="mt-4 space-y-3">
-            {documents.slice(0, 5).map((document) => (
-              <div key={document.id} className="flex items-center justify-between card p-3 text-sm">
-                <span>{document.filename}</span>
-                <span>{document.doc_type || 'unknown'}</span>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-bold text-ink-900">Multi-file analysis result</h2>
+              <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                Each uploaded document was processed separately and is listed below with its own extraction summary.
+              </p>
+            </div>
+            <span className="rounded-full badge" style={{ background: 'var(--bg-raised)', color: 'var(--text-primary)', padding: '6px 10px' }}>
+              {isAnalyzingFiles ? 'Analyzing...' : 'Complete'}
+            </span>
+          </div>
+
+          <div className="mt-4 grid gap-3 md:grid-cols-4">
+            <Metric label="Processed" value={analysisResults.length} />
+            <Metric label="Success" value={analysisResults.filter((item) => item.status === 'done').length} />
+            <Metric label="Failed" value={analysisResults.filter((item) => item.status === 'failed').length} />
+            <Metric label="Files" value={analysisResults.length} />
+          </div>
+
+          <div className="mt-5 grid gap-3 lg:grid-cols-2">
+            {analysisResults.map((item) => (
+              <div key={item.document?.id || item.document?.filename} className="rounded-2xl border p-4" style={{ background: 'var(--bg-raised)', borderColor: 'var(--border-strong)' }}>
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <div className="font-semibold" style={{ color: 'var(--text-primary)' }}>{item.document?.filename || 'Untitled file'}</div>
+                    <div className="mt-1 text-sm" style={{ color: 'var(--text-secondary)' }}>
+                      {item.document?.doc_type || 'unknown'} • {item.fields?.length || 0} fields • {item.tables?.length || 0} tables
+                    </div>
+                  </div>
+                  <span className="rounded-full badge" style={{ background: 'var(--bg-base)', color: 'var(--text-primary)', padding: '6px 10px' }}>
+                    {item.status || 'done'}
+                  </span>
+                </div>
+
+                <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                  <MiniStat label="Confidence" value={Math.round((item.document?.classification_confidence || 0) * 100)} suffix="%" />
+                  <MiniStat label="Fields" value={item.fields?.length || 0} />
+                  <MiniStat label="Tables" value={item.tables?.length || 0} />
+                </div>
+
+                {item.error ? <p className="mt-3 text-sm" style={{ color: 'var(--confidence-low)' }}>{item.error}</p> : null}
+
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <button className="glass-button bg-ink-900 text-white" onClick={() => navigate('/review', { state: { documentId: item.document?.id } })} disabled={!item.document?.id}>
+                    Review file
+                  </button>
+                  {item.document?.id ? (
+                    <button className="btn-secondary" onClick={() => navigate('/library')}>
+                      Open library
+                    </button>
+                  ) : null}
+                </div>
               </div>
             ))}
-            {documents.length === 0 && <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>No documents uploaded yet.</p>}
           </div>
         </div>
+      ) : null}
+
+      <div className="panel p-5">
+        <h2 className="text-lg font-bold text-ink-900">Recent documents</h2>
+        <div className="mt-4 space-y-3">
+          {documents.slice(0, 5).map((document) => (
+            <div key={document.id} className="flex items-center justify-between card p-3 text-sm">
+              <span>{document.filename}</span>
+              <span>{document.doc_type || 'unknown'}</span>
+            </div>
+          ))}
+          {documents.length === 0 && <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>No documents uploaded yet.</p>}
+        </div>
       </div>
-      <StatsPanel documents={statsDocuments} />
     </div>
   )
 }
