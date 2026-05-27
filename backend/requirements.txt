@@ -2,6 +2,7 @@ flask
 flask-cors
 flask-sqlalchemy
 python-dotenv
+gunicorn>=26.0.0,<27.0.0
 easyocr
 opencv-python-headless
 pymupdf
