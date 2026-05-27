@@ -29,6 +29,7 @@ class Document(db.Model):
     preview_path = db.Column(db.String(512), nullable=True)
     doc_type = db.Column(db.String(64), nullable=True)
     classification_confidence = db.Column(db.Float, nullable=True)
+    extraction_result = db.Column(db.JSON, nullable=True)
     status = db.Column(db.String(32), nullable=False, default="uploaded")
     page_count = db.Column(db.Integer, nullable=False, default=1)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
@@ -47,6 +48,7 @@ class Document(db.Model):
             "preview_path": self.preview_path,
             "doc_type": self.doc_type,
             "classification_confidence": self.classification_confidence,
+            "extraction_result": self.extraction_result,
             "status": self.status,
             "page_count": self.page_count,
             "created_at": self.created_at.isoformat() if self.created_at else None,
@@ -142,6 +144,7 @@ class Batch(db.Model):
     processed = db.Column(db.Integer, nullable=False, default=0)
     successful = db.Column(db.Integer, nullable=False, default=0)
     failed = db.Column(db.Integer, nullable=False, default=0)
+    document_ids = db.Column(db.JSON, nullable=False, default=list)
     status = db.Column(db.String(32), nullable=False, default="queued")
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
 
@@ -152,9 +155,18 @@ class Batch(db.Model):
             "processed": self.processed,
             "successful": self.successful,
             "failed": self.failed,
+            "document_ids": self.document_ids or [],
             "status": self.status,
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }
+
+
+def ensure_batch_document_ids() -> None:
+    inspector = inspect(db.engine)
+    columns = {column["name"] for column in inspector.get_columns("batches")}
+    if "document_ids" not in columns:
+        with db.engine.begin() as connection:
+            connection.execute(text("ALTER TABLE batches ADD COLUMN document_ids JSON"))
 
 
 def ensure_document_hashes() -> None:
@@ -178,3 +190,11 @@ def ensure_document_hashes() -> None:
 
     if updated:
         db.session.commit()
+
+
+def ensure_document_extraction_results() -> None:
+    inspector = inspect(db.engine)
+    columns = {column["name"] for column in inspector.get_columns("documents")}
+    if "extraction_result" not in columns:
+        with db.engine.begin() as connection:
+            connection.execute(text("ALTER TABLE documents ADD COLUMN extraction_result JSON"))

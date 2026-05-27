@@ -5,9 +5,10 @@ from pathlib import Path
 
 from flask import Flask, jsonify
 from flask_cors import CORS
+from sqlalchemy import event
 
 from backend.config import Config
-from backend.models.database import db, ensure_document_hashes
+from backend.models.database import db, ensure_batch_document_ids, ensure_document_extraction_results, ensure_document_hashes
 from backend.routes import auth_bp, batch_bp, documents_bp, export_bp, extract_bp, upload_bp
 
 
@@ -60,8 +61,20 @@ def create_app() -> Flask:
         )
 
     with app.app_context():
+        @event.listens_for(db.engine, "connect")
+        def _configure_sqlite(connection, _record):  # pragma: no cover - connection setup
+            try:
+                cursor = connection.cursor()
+                cursor.execute("PRAGMA journal_mode=WAL")
+                cursor.execute("PRAGMA busy_timeout=30000")
+                cursor.close()
+            except Exception:
+                pass
+
         db.create_all()
+        ensure_document_extraction_results()
         ensure_document_hashes()
+        ensure_batch_document_ids()
 
     return app
 

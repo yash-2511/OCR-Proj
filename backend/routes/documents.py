@@ -5,6 +5,8 @@ from pathlib import Path
 from flask import Blueprint, current_app, jsonify, request, send_file
 
 from backend.models.database import Document, ExtractionResult, TableData, db
+from backend.services.document_insights import collect_document_insights
+from backend.services.export_service import build_document_payload
 
 
 documents_bp = Blueprint("documents", __name__)
@@ -71,10 +73,13 @@ def get_document(document_id: str):
     document = db.session.get(Document, document_id)
     if document is None:
         return jsonify({"success": False, "data": None, "error": "Document not found"}), 404
-
+    # Use export_service to build a clean frontend-ready payload
     fields = [item.to_dict() for item in ExtractionResult.query.filter_by(document_id=document.id).all()]
     tables = [item.to_dict() for item in TableData.query.filter_by(document_id=document.id).all()]
-    return jsonify({"success": True, "data": {"document": document.to_dict(), "fields": fields, "tables": tables}, "error": None})
+    payload = build_document_payload(document, fields, tables)
+    # attach preview url if available
+    payload["preview_url"] = f"/api/documents/{document.id}/preview" if document.preview_path else None
+    return jsonify({"success": True, "data": payload, "error": None})
 
 
 @documents_bp.put("/api/documents/<document_id>/fields")
@@ -84,6 +89,9 @@ def update_fields(document_id: str):
     if document is None:
         return jsonify({"success": False, "data": None, "error": "Document not found"}), 404
 
+    structured = document.extraction_result or {}
+    field_map = structured.get("fields") or {}
+    annotations = structured.get("field_annotations") or []
     updated = []
     for item in payload.get("fields", []):
         field_name = item.get("field_name")
@@ -99,6 +107,18 @@ def update_fields(document_id: str):
             result.confidence = item.get("confidence", result.confidence)
             result.is_corrected = True
         updated.append(result.to_dict())
+
+        field_map[field_name] = new_value
+        for annotation in annotations:
+            if annotation.get("field_name") == field_name:
+                annotation["field_value"] = new_value
+                if item.get("confidence") is not None:
+                    annotation["confidence"] = item.get("confidence")
+                break
+
+    structured["fields"] = field_map
+    structured["field_annotations"] = annotations
+    document.extraction_result = structured
 
     db.session.commit()
     return jsonify({"success": True, "data": updated, "error": None})
@@ -160,6 +180,19 @@ def document_tables(document_id: str):
     document = db.session.get(Document, document_id)
     if document is None:
         return jsonify({"success": False, "data": None, "error": "Document not found"}), 404
-    tables = [item.to_dict() for item in TableData.query.filter_by(document_id=document.id).all()]
+    tables = (document.extraction_result or {}).get("tables") or [item.to_dict() for item in TableData.query.filter_by(document_id=document.id).all()]
     return jsonify({"success": True, "data": tables, "error": None})
+
+
+@documents_bp.get("/api/documents/<document_id>/insights")
+def document_insights(document_id: str):
+    document = db.session.get(Document, document_id)
+    if document is None:
+        return jsonify({"success": False, "data": None, "error": "Document not found"}), 404
+
+    structured = document.extraction_result or {}
+    fields = structured.get("field_annotations") or [item.to_dict() for item in ExtractionResult.query.filter_by(document_id=document.id).all()]
+    tables = structured.get("tables") or [item.to_dict() for item in TableData.query.filter_by(document_id=document.id).all()]
+    insights = collect_document_insights(document, fields=fields, tables=tables)
+    return jsonify({"success": True, "data": insights, "error": None})
 

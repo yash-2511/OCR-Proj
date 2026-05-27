@@ -5,7 +5,7 @@ from pathlib import Path
 from flask import Blueprint, current_app, jsonify, request, send_file
 
 from backend.models.database import Batch, Document, ExtractionResult, TableData, db
-from backend.services.export_service import build_document_payload, export_batch_zip, export_csv_file, export_excel_file, export_json_file
+from backend.services.export_service import build_document_payload, build_export_payload, export_batch_zip, export_csv_file, export_excel_file, export_json_file
 
 
 export_bp = Blueprint("export", __name__)
@@ -22,7 +22,6 @@ def export_document():
 
     fields = [item.to_dict() for item in ExtractionResult.query.filter_by(document_id=document.id).all()]
     tables = [item.to_dict() for item in TableData.query.filter_by(document_id=document.id).all()]
-    payload_data = build_document_payload(document, fields, tables)
     output_dir = Path(current_app.config["OUTPUT_FOLDER"])
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -31,9 +30,11 @@ def export_document():
         export_csv_file(fields, str(output_path))
     elif export_format == "excel":
         output_path = output_dir / f"{document.id}.xlsx"
+        payload_data = build_export_payload(document, fields, tables)
         export_excel_file(payload_data, str(output_path))
     else:
         output_path = output_dir / f"{document.id}.json"
+        payload_data = build_document_payload(document, fields, tables)
         export_json_file(payload_data, str(output_path))
 
     return send_file(str(output_path), as_attachment=True)
@@ -45,7 +46,8 @@ def export_batch(batch_id: str):
     if batch is None:
         return jsonify({"success": False, "data": None, "error": "Batch not found"}), 404
 
-    documents = Document.query.filter(Document.status != "failed").all()
+    batch_document_ids = list(batch.document_ids or [])
+    documents = Document.query.filter(Document.id.in_(batch_document_ids)).all() if batch_document_ids else []
     output_dir = Path(current_app.config["OUTPUT_FOLDER"])
     output_dir.mkdir(parents=True, exist_ok=True)
 
