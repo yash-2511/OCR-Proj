@@ -12,3 +12,4 @@ openai
 google-generativeai
 anthropic
 huggingface_hub
+psycopg2-binary

@@ -9,7 +9,10 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 class Config:
     SECRET_KEY = os.getenv("SECRET_KEY", "change-me-in-production")
-    SQLALCHEMY_DATABASE_URI = os.getenv("DATABASE_URL", f"sqlite:///{BASE_DIR / 'documents.db'}")
+    database_url = os.getenv("DATABASE_URL", f"sqlite:///{BASE_DIR / 'documents.db'}")
+    if database_url.startswith("postgres://"):
+        database_url = database_url.replace("postgres://", "postgresql://", 1)
+    SQLALCHEMY_DATABASE_URI = database_url
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
     # ── Upload limits ──────────────────────────────────────────────────────────
