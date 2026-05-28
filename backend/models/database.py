@@ -18,6 +18,11 @@ def _uuid() -> str:
     return str(uuid.uuid4())
 
 
+def _is_postgresql() -> bool:
+    """Return True when the active engine is PostgreSQL (Supabase, Render, etc.)."""
+    return db.engine.dialect.name == "postgresql"
+
+
 class Document(db.Model):
     __tablename__ = "documents"
 
@@ -162,39 +167,72 @@ class Batch(db.Model):
 
 
 def ensure_batch_document_ids() -> None:
-    inspector = inspect(db.engine)
-    columns = {column["name"] for column in inspector.get_columns("batches")}
-    if "document_ids" not in columns:
-        with db.engine.begin() as connection:
-            connection.execute(text("ALTER TABLE batches ADD COLUMN document_ids JSON"))
+    """Add document_ids column to batches table if it is missing (safe migration)."""
+    try:
+        inspector = inspect(db.engine)
+        columns = {column["name"] for column in inspector.get_columns("batches")}
+        if "document_ids" not in columns:
+            # Use JSONB on PostgreSQL for better performance; plain JSON elsewhere.
+            col_type = "JSONB" if _is_postgresql() else "JSON"
+            with db.engine.begin() as connection:
+                connection.execute(
+                    text(f"ALTER TABLE batches ADD COLUMN document_ids {col_type}")
+                )
+    except Exception as exc:
+        # Log but never crash startup — column may already exist on concurrent deploy.
+        import logging
+        logging.getLogger(__name__).warning("ensure_batch_document_ids: %s", exc)
 
 
 def ensure_document_hashes() -> None:
-    inspector = inspect(db.engine)
-    columns = {column["name"] for column in inspector.get_columns("documents")}
-    if "file_hash" not in columns:
-        with db.engine.begin() as connection:
-            connection.execute(text("ALTER TABLE documents ADD COLUMN file_hash VARCHAR(64)"))
+    """Add file_hash column to documents table if missing, then backfill existing rows."""
+    try:
+        inspector = inspect(db.engine)
+        columns = {column["name"] for column in inspector.get_columns("documents")}
+        if "file_hash" not in columns:
+            with db.engine.begin() as connection:
+                connection.execute(
+                    text("ALTER TABLE documents ADD COLUMN file_hash VARCHAR(64)")
+                )
+    except Exception as exc:
+        import logging
+        logging.getLogger(__name__).warning("ensure_document_hashes (alter): %s", exc)
 
-    documents = Document.query.filter((Document.file_hash.is_(None)) | (Document.file_hash == "")).all()
-    if not documents:
-        return
+    # Backfill hashes for any existing documents that are missing one.
+    try:
+        documents = Document.query.filter(
+            (Document.file_hash.is_(None)) | (Document.file_hash == "")
+        ).all()
+        if not documents:
+            return
 
-    updated = False
-    for document in documents:
-        path = Path(document.original_path)
-        if not path.exists():
-            continue
-        document.file_hash = sha256_file(path)
-        updated = True
+        updated = False
+        for document in documents:
+            path = Path(document.original_path)
+            if not path.exists():
+                continue
+            document.file_hash = sha256_file(path)
+            updated = True
 
-    if updated:
-        db.session.commit()
+        if updated:
+            db.session.commit()
+    except Exception as exc:
+        db.session.rollback()
+        import logging
+        logging.getLogger(__name__).warning("ensure_document_hashes (backfill): %s", exc)
 
 
 def ensure_document_extraction_results() -> None:
-    inspector = inspect(db.engine)
-    columns = {column["name"] for column in inspector.get_columns("documents")}
-    if "extraction_result" not in columns:
-        with db.engine.begin() as connection:
-            connection.execute(text("ALTER TABLE documents ADD COLUMN extraction_result JSON"))
+    """Add extraction_result column to documents table if it is missing (safe migration)."""
+    try:
+        inspector = inspect(db.engine)
+        columns = {column["name"] for column in inspector.get_columns("documents")}
+        if "extraction_result" not in columns:
+            col_type = "JSONB" if _is_postgresql() else "JSON"
+            with db.engine.begin() as connection:
+                connection.execute(
+                    text(f"ALTER TABLE documents ADD COLUMN extraction_result {col_type}")
+                )
+    except Exception as exc:
+        import logging
+        logging.getLogger(__name__).warning("ensure_document_extraction_results: %s", exc)

@@ -32,6 +32,7 @@ def create_app() -> Flask:
     app.register_blueprint(export_bp)
     app.register_blueprint(batch_bp)
     app.register_blueprint(auth_bp)
+
     @app.get("/")
     def main():
         return """
@@ -40,7 +41,7 @@ def create_app() -> Flask:
         Visit Frontend
     </a></h2>
     """
-    
+
     @app.get("/api/health")
     def health():
         return jsonify({"success": True, "data": {"status": "ok"}, "error": None})
@@ -61,15 +62,17 @@ def create_app() -> Flask:
         )
 
     with app.app_context():
-        @event.listens_for(db.engine, "connect")
-        def _configure_sqlite(connection, _record):  # pragma: no cover - connection setup
-            try:
+        # Only apply SQLite-specific PRAGMAs when running SQLite locally.
+        # Running these against PostgreSQL corrupts the connection's transaction
+        # state before db.create_all() executes, causing the
+        # "InFailedSqlTransaction" cascade seen on Render/Supabase.
+        if app.config["SQLALCHEMY_DATABASE_URI"].startswith("sqlite"):
+            @event.listens_for(db.engine, "connect")
+            def _configure_sqlite(connection, _record):  # pragma: no cover
                 cursor = connection.cursor()
                 cursor.execute("PRAGMA journal_mode=WAL")
                 cursor.execute("PRAGMA busy_timeout=30000")
                 cursor.close()
-            except Exception:
-                pass
 
         db.create_all()
         ensure_document_extraction_results()
